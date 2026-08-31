@@ -1,0 +1,237 @@
+# spec01.md — Authentication Shell (UI)
+
+**Phase 0 · Backend: `Autbiz-backend/SPEC/spec01-backend.md`**
+
+---
+
+## The problem
+
+There is no frontend, and more importantly there is no proof that the proxy
+pattern works. Until a login round-trip succeeds in production — cookie set,
+cookie returned, session surviving a refresh — every later phase is building on
+an assumption.
+
+Phase 0's frontend is deliberately three screens. Its value is not the UI. It is
+that it forces the rewrite, the cookie flags, the CSRF double-submit, and the
+generated-types pipeline to be correct before anything depends on them.
+
+---
+
+## Ground rules inherited
+
+From `ARCHITECTURE.md`:
+
+- **§3 is the invariant register** — `AUT-1` through `AUT-21`, the single
+  authoritative list.
+- `AUT-7` (§6) — route guards and per-role navigation are **UX, never
+  security**. Hiding a link keeps someone off a screen the backend would refuse
+  anyway.
+- `AUT-13` — a refusal names the remedy. The UI renders the envelope's
+  `message`; it does not substitute its own copy.
+- §11 — types are generated from the live OpenAPI schema and **re-exported**,
+  never hand-defined.
+
+From `rules.md`:
+
+- §21 — the browser talks only to its own origin; `/api/:path*` rewrites to the
+  backend. **No public environment variable for the API URL** — a public base
+  overrides the proxy and undoes the same-origin design.
+- §23 — the `csrf_token` cookie is deliberately readable by JS for the
+  double-submit pair; the `session` cookie is httpOnly and never read by
+  JavaScript. **No browser storage for auth, ever.**
+- §26 — no Dockerfile in the frontend; the platform builds the framework
+  natively.
+
+From `sops.md`:
+
+- §6 — the gates, and the rule that the production build is part of them.
+- §7 — never hand-edit the generated file; re-export, never redefine; no test
+  files inside the routable app directory.
+
+---
+
+## The proxy rewrite
+
+```text
+/api/:path*   →   ${BACKEND_ORIGIN}/:path*
+```
+
+`BACKEND_ORIGIN` is **server-side only** and read at **build** time. Changing it
+requires a redeploy, not a restart.
+
+Three rules:
+
+1. **The build refuses to start** if `BACKEND_ORIGIN` is unset in production. A
+   build that stops is a five-minute fix; one that ships pointing at localhost is
+   an afternoon of confusion.
+2. **Strip a trailing slash defensively.** A pasted origin carries one, and the
+   doubled path 404s in a way that points nowhere near the cause.
+3. Set it for **Production and Preview both**. "Works in Production, broken in
+   Preview" is this variable, every time.
+
+---
+
+## Type generation
+
+```bash
+npm run gen:api      # regenerate from the running backend's OpenAPI schema
+```
+
+The shared types module **re-exports** generated types and never redefines a
+shape. A backend rename then breaks the type check loudly, at the earliest
+possible moment, instead of failing at runtime in front of a user. Expect that
+alarm to fire; it is doing its job.
+
+**Never hand-edit the generated file.** It is regenerated; edits vanish and take
+the drift alarm with them.
+
+Contract tests for Phase 0 are therefore free — the type check *is* the contract
+test.
+
+---
+
+## Screens
+
+### `/login`
+
+Email, password, submit. No registration link — users are created by an admin.
+
+Behaviour:
+
+- Submit control **disabled while a request is in flight**. Network latency makes
+  people double-click.
+- 200 → redirect to `/`.
+- 401 → inline error using the envelope's `message`. Identical text for every
+  401, because the backend returns an identical body by design.
+- 422 → field-level errors from the envelope.
+- Network failure → a distinct message. Do not present a transport failure as
+  bad credentials.
+
+### `/` — authenticated shell
+
+Header with the user's name and a sign-out control. Navigation rendered from the
+permission list returned by `/auth/me`. Empty in Phase 0 beyond a placeholder —
+domain screens arrive in spec02.
+
+### Session bootstrap
+
+On load, call `GET /auth/me`.
+
+- 200 → render the shell.
+- 401 → redirect to `/login`.
+- While pending → a loading state, **not** the login screen. Flashing login at a
+  signed-in user on every refresh is the most common way this gets built wrong.
+
+### Global 401 handling
+
+Any API call returning 401 clears local user state and redirects to `/login`.
+A session can expire mid-visit; the app must not sit in a half-authenticated
+state making calls that all fail.
+
+---
+
+## CSRF on the client
+
+Read the `csrf_token` cookie — readable because the backend deliberately does
+**not** mark it httpOnly — and send it as `X-CSRF-Token` on every mutating
+request.
+
+Centralize this in one fetch wrapper. A mutating call written by hand that
+forgets the header produces a 403 whose cause is invisible from the call site.
+
+The `session` cookie is httpOnly and is never read by JavaScript. The module
+that touches session state server-side is marked server-only, so importing it
+into a client component is a build error.
+
+---
+
+## What is deliberately not here
+
+- No client-side permission enforcement beyond hiding navigation. §6.
+- No token in `localStorage`. Sessions are httpOnly cookies.
+- No API client generated beyond types — a thin typed `fetch` wrapper is enough.
+- No component library decisions yet. Phase 0 is unstyled beyond legibility;
+  visual design decisions belong with the domain screens in spec02.
+
+---
+
+## Tests
+
+### Type check and lint
+
+Must pass with the generated schema regenerated from a **running** backend, not
+a stale committed copy.
+
+### Component
+
+- Login submit is disabled while in flight and re-enabled on both success and
+  failure.
+- A 401 response renders the envelope message, not a hardcoded string.
+- A transport failure renders a distinct message from a 401.
+- The shell renders navigation from the permission list, and renders nothing for
+  an empty list.
+
+### Production build — part of the gate
+
+```bash
+rm -rf .next tsconfig.tsbuildinfo && npm run build
+```
+
+Removing both first is required, not hygiene. The incremental type-check cache
+retains deleted generated types as compiler roots and fails the build with
+errors about files that no longer exist. And a framework build can fail on
+things lint, type check and the test runner all pass — a test file placed inside
+the routable app directory, for one, which fails with an error naming neither
+the file nor the cause while every other check is green. **The app would not
+have deployed.**
+
+Never build while a dev server is running: shared build directory, same
+corruption.
+
+### Rendered verification
+
+Drive a real browser and confirm:
+
+- Login succeeds and the session survives a hard refresh.
+- Sign-out returns to `/login` and a back-button press does not restore the
+  shell.
+- Text is legible against its background. Where a change is visual, **measure
+  computed styles**, never assert class names.
+
+If a control seems dead locally, delete the build directory and restart **one**
+dev server. Two dev processes sharing a build directory corrupt it, and the
+client runtime bundle 404s — which silently kills hydration, so the page renders
+and nothing responds to clicks.
+
+---
+
+## Blocking open decisions
+
+- **§12.8 — hosting platform and region.** Blocks deployment and the region
+  match with the backend.
+
+---
+
+## Definition of done
+
+- [ ] Rewrite configured; **no** public API URL variable anywhere in the repo
+- [ ] Build fails fast without `BACKEND_ORIGIN` in production
+- [ ] Trailing slash stripped from `BACKEND_ORIGIN`
+- [ ] Types generated from the live schema and re-exported, not redefined
+- [ ] Fetch wrapper attaches `X-CSRF-Token` on every mutation
+- [ ] Session bootstrap shows loading, never a login flash
+- [ ] Global 401 handling
+- [ ] Frontend gate: type check, lint, tests
+- [ ] **Clean production build** (`.next` and tsbuildinfo removed first)
+- [ ] Rendered check in a real browser, computed styles measured
+- [ ] Deployed with `BACKEND_ORIGIN` set for Production **and** Preview
+- [ ] `/api/health` returns JSON, not HTML
+- [ ] Login works end-to-end in production, session survives refresh
+
+---
+
+## As Built
+
+*To be completed after implementation. Record every divergence and why.*
+
+<!-- nothing yet -->
