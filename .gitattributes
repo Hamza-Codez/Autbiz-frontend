@@ -1,0 +1,9 @@
+# Normalise line endings before the first commit. Fixing this after files are
+# tracked means a whole-file diff on every affected path.
+
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.svg text

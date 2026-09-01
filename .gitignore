@@ -1,0 +1,19 @@
+node_modules/
+.next/
+out/
+build/
+
+# Secrets. Only .env.example is committed.
+.env
+.env.local
+.env*.local
+
+tsconfig.tsbuildinfo
+next-env.d.ts
+
+# Untracked working material.
+scratch/
+
+.DS_Store
+*.pem
+npm-debug.log*
