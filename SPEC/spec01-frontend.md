@@ -440,8 +440,18 @@ rm -rf .next tsconfig.tsbuildinfo && npm run build
 On PowerShell the last line is
 `Remove-Item -Recurse -Force .next, tsconfig.tsbuildinfo -ErrorAction SilentlyContinue`.
 
-There is **no test runner**, so this spec's component tests have nowhere to
-live. Recorded as a gap, not a decision — see "Not done" below.
+```bash
+npm test                       # vitest run
+```
+
+**Vitest + Testing Library + jsdom**, installed before Phase 0 closed rather than
+deferred to Phase 1. Phase 1 is the first phase with real screens; entering it
+without a runner means the gap compounds.
+
+Tests live in `tests/`, **deliberately outside `src/app/`**. A test file inside
+the routable app directory fails `next build` with an error naming neither the
+file nor the cause, while lint, type check and the runner all stay green — the
+app simply would not deploy.
 
 ### Divergences from this spec
 
@@ -470,6 +480,12 @@ live. Recorded as a gap, not a decision — see "Not done" below.
   becomes a whole-file diff.
 - **`scratch/` is gitignored.** Untracked working material that `git add -A`
   would otherwise sweep into a commit describing none of it (`sops.md` §8).
+- **The login form's labels were not associated with their inputs.** No
+  `htmlFor`/`id` pairing, so a screen reader could not announce either field and
+  clicking a label did not focus it. Found immediately by the first component
+  test, which could not locate the inputs by label — the test was right and the
+  markup was wrong. Fixed on the page rather than by weakening the query;
+  `autoComplete="username"` and `"current-password"` added at the same time.
 
 ### Verified
 
@@ -491,17 +507,33 @@ admin seeded as `admin@autbiz.local` was created successfully and could never
 sign in. Fixed in the backend; recorded in `spec01-backend.md`'s As Built. It was
 invisible to every test and surfaced only by driving a real login.
 
+### Component tests
+
+Four, in `tests/login.test.tsx`, covering what this spec asks for:
+
+1. Submit is disabled while a request is in flight and re-enabled on failure.
+2. A 401 renders the **envelope's** `message`, not a hardcoded string — the
+   backend returns an identical body for all three login failures by design, and
+   substituting local copy per case would reintroduce the enumeration leak at the
+   last hop.
+3. A transport failure renders distinctly from a 401. Presenting a network
+   problem as bad credentials sends the user to reset a password that was never
+   wrong.
+4. Success redirects to the shell.
+
+The fourth test this spec lists — navigation rendered from the permission list —
+is **not written**, because the Phase 0 shell renders a placeholder and has no
+navigation to drive. It belongs with the first domain screens in spec02.
+
 ### Not done in this phase
 
-- **No test runner and therefore no component tests.** This spec asks for four
-  (submit disabled in flight, 401 renders the envelope message, transport failure
-  distinct from 401, navigation from the permission list). They are unwritten.
-  Either add a runner or amend this spec; leaving it silent is the option that is
-  not acceptable.
 - **No rendered browser verification.** Playwright's Windows driver download
   failed (404 for 1.57.0) in this environment, so "measure computed styles, never
   assert class names" has not been done. The proxy and login round-trip were
-  verified with `curl` instead, which covers the contract but not the rendering.
+  verified with `curl`, which covers the contract but not the rendering. **This
+  remains outstanding** — the failure is an environment problem, not a reason to
+  drop the check, and the invisible-text class of defect it catches would
+  otherwise be inherited by Phase 1.
 - **Not deployed.** No Vercel project, so `BACKEND_ORIGIN` has not been set for
   Production and Preview, and the same-origin design is proven locally only.
 - The shell renders a placeholder; navigation is not yet driven by the permission

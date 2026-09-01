@@ -50,8 +50,14 @@ Shared build directory, corruption. The symptom is that the page renders and
 nothing responds to clicks, because the client runtime bundle 404'd and
 hydration died silently.
 
-There is **no test runner configured** — `npm test` does not exist. `spec01`'s
-gate assumes one. Either add it or record the omission in that spec's As Built.
+```bash
+npm test                    # vitest run
+npm run test:watch
+```
+
+**Tests live in `tests/`, never in `src/app/`.** A test file inside the routable
+app directory fails `next build` with an error naming neither the file nor the
+cause, while lint, type check and the runner all stay green.
 
 ## Architecture
 
@@ -114,11 +120,11 @@ Scaffolded with `create-next-app`: Next.js 16 App Router, React 19, Tailwind v4,
 TypeScript, ESLint. Screens so far are `src/app/login/page.tsx` and
 `src/app/page.tsx`; the fetch wrapper is `src/lib/api.ts`.
 
-Known gaps against `SPEC/spec01-frontend.md`, to be closed or recorded in its
-As Built:
+Component tests are in `tests/login.test.tsx`. `scratch/` is gitignored working
+material — do not commit it.
 
-- No `.env.example` documenting `BACKEND_ORIGIN`.
-- `README.md` is untouched `create-next-app` boilerplate and describes nothing
-  true about this project.
-- No test runner, so the spec's component tests have nowhere to live.
-- `scratch/` is untracked working material — do not commit it.
+**The one outstanding gap:** no rendered browser verification. Playwright's
+Windows driver download 404'd here, so "measure computed styles, never assert
+class names" has not been done. That is an environment problem, not a reason to
+skip the check — it catches the invisible-text class of defect, and Phase 1
+inherits it otherwise.
