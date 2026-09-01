@@ -123,8 +123,14 @@ TypeScript, ESLint. Screens so far are `src/app/login/page.tsx` and
 Component tests are in `tests/login.test.tsx`. `scratch/` is gitignored working
 material — do not commit it.
 
-**The one outstanding gap:** no rendered browser verification. Playwright's
-Windows driver download 404'd here, so "measure computed styles, never assert
-class names" has not been done. That is an environment problem, not a reason to
-skip the check — it catches the invisible-text class of defect, and Phase 1
-inherits it otherwise.
+```bash
+npm run check:rendered      # both servers up; drives Chromium, measures contrast
+```
+
+`scripts/rendered-check.mjs` **measures computed styles, never class names** — a
+class in the markup proves nothing about what a person sees. It runs against the
+production build in `.next`, so **rebuild before trusting it**; a source fix that
+has not been rebuilt is invisible to it.
+
+Tailwind v4 emits `oklch()`, so a hand-written `rgb()` parser fails on the
+computed value. The script resolves any notation through a 1x1 canvas instead.

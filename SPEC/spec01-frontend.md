@@ -525,15 +525,52 @@ The fourth test this spec lists — navigation rendered from the permission list
 is **not written**, because the Phase 0 shell renders a placeholder and has no
 navigation to drive. It belongs with the first domain screens in spec02.
 
+### Rendered verification — done
+
+```bash
+npm run check:rendered      # both servers must be up
+```
+
+`scripts/rendered-check.mjs` drives Chromium through Playwright and **measures
+computed styles**, never class names. A Tailwind class in the markup proves
+nothing about what a person sees: it may not exist, may be purged, or may be
+overridden. Only the computed value is evidence.
+
+It types into the form, submits genuinely wrong credentials against the **real
+backend**, waits for the actual 401 envelope message to render, and measures
+WCAG contrast on six elements. All six pass:
+
+| Element | Ratio | Minimum |
+|---|---|---|
+| heading | 17.75:1 | 3.0 |
+| both field labels | 10.30:1 | 4.5 |
+| typed input text | 17.75:1 | 4.5 |
+| error message (live 401) | 5.87:1 | 4.5 |
+| submit button | 5.25:1 | 4.5 |
+
+Two things this exercise taught, both recorded so they are not rediscovered:
+
+- **Playwright installs fine.** The earlier 404 was a stale pinned version
+  (1.57.0), not a blocked environment. 1.62.1 installs its Chromium without
+  complaint.
+- **Tailwind v4 emits `oklch()`**, so `getComputedStyle` returns colour strings
+  that a hand-written `rgb()` regex silently fails to parse — returning `null`
+  and producing a crash rather than a wrong answer, fortunately. The check
+  resolves any notation by painting it to a 1×1 canvas and reading the pixel
+  back, which works for whatever the browser supports next.
+
+The server must be **rebuilt** before this check means anything. It runs against
+the production build in `.next`, so a source fix that has not been rebuilt is
+invisible to it — that happened once here, with the label fix.
+
 ### Not done in this phase
 
-- **No rendered browser verification.** Playwright's Windows driver download
-  failed (404 for 1.57.0) in this environment, so "measure computed styles, never
-  assert class names" has not been done. The proxy and login round-trip were
-  verified with `curl`, which covers the contract but not the rendering. **This
-  remains outstanding** — the failure is an environment problem, not a reason to
-  drop the check, and the invisible-text class of defect it catches would
-  otherwise be inherited by Phase 1.
+- **Not deployed.** No Vercel project, so `BACKEND_ORIGIN` has not been set for
+  Production and Preview, and the same-origin design is proven locally only.
+  Phase 0's deliverable is "a skeleton that is **live**", so the phase is not
+  formally complete.
+- The shell renders a placeholder; navigation is not yet driven by the permission
+  list, since Phase 0 has no domain screens to navigate to.
 - **Not deployed.** No Vercel project, so `BACKEND_ORIGIN` has not been set for
   Production and Preview, and the same-origin design is proven locally only.
 - The shell renders a placeholder; navigation is not yet driven by the permission
