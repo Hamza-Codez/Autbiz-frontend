@@ -258,16 +258,43 @@ console errors, no failed requests.
 returned 403, invisible to 27 passing component tests and 83 passing backend
 tests. Fixed in the backend and recorded in `rules.md` §23.
 
-27 tests, clean production build, `npm run check:rendered` 12/12.
+34 tests, clean production build, `npm run check:rendered` **15/15** — now
+covering login, shell navigation, the orders table and the approvals screen.
+
+### Closing the loop
+
+Both ends of the flow were missing, found by auditing every API path for a UI
+consumer rather than by noticing while using the product.
+
+**Nothing could create an `OrderIssue`.** The endpoint shipped in Phase 1 with no
+caller, and an issue is a record, not an inference (§5) — so with none existing,
+no credit could be proposed by anyone. Issues had to be seeded to exercise Phase
+2 at all. `ReportIssue` closes it.
+
+`issue_type` is **free text**, deliberately. It carries no eligibility meaning:
+a credit turns on the 30-day window, an OPEN issue and no prior credit, never the
+category. Constraining it to a vocabulary would make the category the thing worth
+choosing, which is exactly the back door §5 warns about. The form also states
+that logging an issue makes an existing calculation stale — better than
+discovering it as a 409 at approval.
+
+**An approved credit became invisible.** The queue emptied and nothing showed the
+credit existed except a balance on another screen, so an operator could not tell
+whether their proposal had been approved or rejected. It also made
+`CREDIT_ALREADY_ISSUED` inexplicable, pointing at a record the user could not
+see. `OrderCredits` closes it, and renders **nothing at all** without
+`credits:read` rather than an error banner — a missing permission is not a fault.
+
+Verified in a browser end to end: log an issue on a clean order, calculate
+**568.00**, propose with "nothing has been applied yet", approve as a supervisor,
+and the credit appears on the order. No console errors.
 
 ### Not done
 
 - **Not deployed.**
-- **No UI for logging an issue.** §12.3 resolved to
-  `POST /orders/{id}/issues` and the endpoint exists, but nothing calls it from
-  the browser — issues had to be seeded to exercise the credit flow. Without a
-  form the whole Phase 2 flow is unreachable through the product, which makes it
-  the first thing Phase 3 should add.
-- The rendered check covers login, shell nav and the orders table; the proposal
-  and queue screens are not in it yet.
-- No credit history screen. `GET /credits` exists and nothing renders it.
+- `POST /users` has no UI. Known surface, not a defect — Phase 0's exit gate
+  exercised it directly.
+- The proposal panel and an occupied queue row are not in `check:rendered`; it
+  covers the queue's heading, count and empty state. Measuring the amber
+  "awaiting approval" and green "credit issued" panels needs a fixture in a known
+  state, which the check does not create.
