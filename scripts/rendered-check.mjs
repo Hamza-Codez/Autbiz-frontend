@@ -11,6 +11,12 @@ import { chromium } from 'playwright';
 
 const FRONTEND = 'http://localhost:3000';
 
+// Dev-only credentials, overridable. These exist solely in a local Postgres
+// container; production values are set at deploy time and the seed refuses any
+// password committed to this repository.
+const EMAIL = process.env.CHECK_EMAIL ?? 'admin@autbiz.example.com';
+const PASSWORD = process.env.CHECK_PASSWORD ?? 'a-long-local-dev-passphrase';
+
 /** WCAG relative luminance. */
 function luminance([r, g, b]) {
   const a = [r, g, b].map((v) => {
@@ -122,6 +128,58 @@ await record(
   await effectiveBackground(button),
   4.5,
 );
+
+// --- Signed-in screens -----------------------------------------------------
+//
+// The login screen is not the whole product. The orders table is where an
+// operator reads money-adjacent figures, so it is where illegible text costs
+// the most.
+
+await page.goto(`${FRONTEND}/login`, { waitUntil: 'networkidle' });
+await page.locator('#email').fill(EMAIL);
+await page.locator('#password').fill(PASSWORD);
+await page.getByRole('button', { name: /sign in/i }).click();
+
+try {
+  await page.waitForURL(`${FRONTEND}/`, { timeout: 15000 });
+} catch {
+  console.error(
+    `\n  Could not sign in as ${EMAIL}. Seed a user first:\n` +
+      '    python -m app.seed   (backend)\n',
+  );
+  await browser.close();
+  process.exit(1);
+}
+
+// The shell's navigation, which is rendered from the permission list.
+const navLink = page.getByRole('link', { name: /orders/i }).first();
+await record(
+  page,
+  'shell navigation link',
+  await navLink.evaluate((n) => getComputedStyle(n).color),
+  await effectiveBackground(navLink),
+  4.5,
+);
+
+await page.goto(`${FRONTEND}/orders`, { waitUntil: 'networkidle' });
+await page.locator('table').first().waitFor({ state: 'visible', timeout: 15000 });
+
+for (const [label, selector] of [
+  ['orders table header', 'thead th'],
+  ['order id link', 'tbody a'],
+  ['order date cell', 'tbody td:nth-child(2)'],
+  ['order status cell', 'tbody td:nth-child(3)'],
+  ['result count line', 'main > p'],
+]) {
+  const el = page.locator(selector).first();
+  await record(
+    page,
+    label,
+    await el.evaluate((n) => getComputedStyle(n).color),
+    await effectiveBackground(el),
+    4.5,
+  );
+}
 
 let failed = 0;
 console.log('\n  Computed-style contrast (WCAG AA: 4.5 body, 3.0 large)\n');

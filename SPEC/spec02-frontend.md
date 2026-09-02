@@ -196,6 +196,91 @@ Drive a real browser:
 
 ## As Built
 
-*To be completed after implementation. Record every divergence and why.*
+Phase 1, frontend. Screens: `/orders`, `/orders/[orderId]`,
+`/customers/[customerId]`, plus real navigation in the shell.
 
-<!-- nothing yet -->
+### Three defects found by building, none by reading
+
+**`next build` failed prerendering `/orders`.** `useSearchParams()` must sit
+inside a `Suspense` boundary; the page reads the query string, so Next.js cannot
+statically render it and bails to the client. Lint, type check and all seven
+tests passed at the time — **the app simply would not have deployed**, which is
+exactly the failure `spec01-frontend` warns about and the reason the production
+build is in the gate rather than assumed.
+
+**React's compiler lint rejected `setState` called synchronously in an effect
+body.** Fixing it properly closed a real race rather than just satisfying a rule:
+without a cancellation guard, changing pages quickly lets a slow first response
+land after the second and render results for a page the operator already left.
+Every data effect now performs no `setState` before its first `await` and guards
+on a `cancelled` flag.
+
+**The generated types carried two error shapes.** The schema advertised
+FastAPI's `HTTPValidationError` for 422 while the API actually returns the
+envelope. Fixed in the backend (`app.openapi()`); recorded here because the
+broken union at a call site is what surfaced it, which is the generated-types
+pipeline doing its job.
+
+### Decisions
+
+**No client-side arithmetic on any monetary value.** The order detail renders
+each line's unit amount from the server and has **no total row**. Once a figure
+the user sees is produced by the client, "the number on screen" and "the number
+the backend will act on" are two values that can disagree — the thing the whole
+architecture exists to prevent. When a total is needed the API will provide one.
+
+**Both not-found states say only "Not found".** The API returns an identical body
+for an absent record and one the caller may not see (`AUT-7`); wording them
+differently would undo that at the last hop, which is where it is easiest to undo
+by accident.
+
+**The balance renders as an explicit `0.00`** with a note that it is derived from
+transactions — never as "no balance". A real zero and a missing value must not
+look the same.
+
+**A 403 on the account request hides the section rather than raising an error.**
+`accounts:read` is a separate permission, so a principal with `orders:read` alone
+sees the customer and no balance. That is not a fault worth shouting about.
+
+**Navigation is derived from the permission list and is UX only** (`AUT-7`).
+Unrecognised permissions are ignored — the backend may ship one before this file
+knows about it, and rendering raw permission keys is debug output, not
+navigation. This replaced the Phase 0 placeholder, which did exactly that.
+
+### Tests
+
+17 across four files. The Phase 1 additions:
+
+- The list renders the **server's `total`**, not `items.length` — the page shows
+  20 rows while the result set may be 137.
+- An empty result renders the empty state, not an empty table.
+- A failure renders the envelope's `message`, not a hardcoded string.
+- A transport failure renders distinctly from an API error.
+- The request sends `page`/`size` and **never `limit`**.
+- Navigation renders from permissions; an empty list renders none and does not
+  crash; an unrecognised permission is ignored.
+- The shell shows a loading state rather than flashing login at a signed-in user.
+
+**`spec01-frontend`'s fourth test is now written.** It had nowhere to live in
+Phase 0 because the shell had no navigation to drive.
+
+### Verified in a real browser
+
+Login → order list → order detail → customer → absent order, with **no console
+errors and no failed requests** beyond the deliberate 404.
+
+Computed contrast measured rather than asserted from class names, and
+`npm run check:rendered` was **extended to cover the signed-in screens** rather
+than only login — it now signs in, walks to the orders table and measures there
+too. Shell nav 17.93:1, table header 10.30:1, order link 8.82:1, date and status
+cells 17.75:1, count line 7.56:1. **12/12 pass WCAG AA.**
+
+Dev credentials come from `CHECK_EMAIL`/`CHECK_PASSWORD` with local defaults, and
+the script exits with an actionable message if no user is seeded.
+
+### Not done
+
+- **Not deployed**, so `BACKEND_ORIGIN` is still unproven for Production and
+  Preview.
+- No filtering UI. The API accepts `customer_id` and `status`; the list sends
+  neither.
