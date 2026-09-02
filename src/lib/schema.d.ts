@@ -276,6 +276,125 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/orders/{order_id}/adjustments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Calculate Adjustment
+         * @description Compute a credit figure. **No amount parameter exists** (`AUT-2`).
+         *
+         *     Calculating twice is permitted and produces two adjustments — each records
+         *     the revision it was computed against, and only one can ever become a credit.
+         */
+        post: operations["calculate_adjustment_orders__order_id__adjustments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/credits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Credits */
+        get: operations["list_credits_credits_get"];
+        put?: never;
+        /**
+         * Request Credit
+         * @description **Always 202. This never applies a credit.**
+         *
+         *     §5 makes the operation approval-gated, so a successful call produces an
+         *     `ApprovalRequest` and says so. 202 — accepted, not yet acted upon — is the
+         *     honest status: it is not a 4xx because nothing failed, and not a 201 because
+         *     nothing was created that moves money.
+         *
+         *     §7: this is the same `APPROVAL_REQUIRED` the Phase 4 agent will observe and
+         *     must narrate honestly. A client that renders it as "applied" is the single
+         *     most likely defect in this system, and it will look correct in every
+         *     screenshot.
+         */
+        post: operations["request_credit_credits_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/approvals/{request_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Request
+         * @description Revalidate and apply. **201 — this one really is a completion.**
+         *
+         *     Refuses with 409 `SELF_APPROVAL`, `ALREADY_DECIDED`, `PROPOSAL_EXPIRED`,
+         *     `STALE_CALCULATION` or `CREDIT_ALREADY_ISSUED`. The two staleness codes carry
+         *     the distinct §8 messages, because the reader needs to know which situation
+         *     they are in.
+         */
+        post: operations["approve_request_approvals__request_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/approvals/{request_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject Request */
+        post: operations["reject_request_approvals__request_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Approvals
+         * @description The approvals queue.
+         *
+         *     Expired rows are **returned**, flagged as expired, not filtered out — hiding
+         *     one would leave its initiator wondering where their proposal went.
+         */
+        get: operations["list_approvals_approvals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -295,6 +414,128 @@ export interface components {
             /** Balance */
             balance: string;
         };
+        /** AdjustmentOut */
+        AdjustmentOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Order Id
+             * Format: uuid
+             */
+            order_id: string;
+            /**
+             * Issue Id
+             * Format: uuid
+             */
+            issue_id: string;
+            /** Amount */
+            amount: string;
+            /** Basis */
+            basis: {
+                [key: string]: unknown;
+            };
+            /** Computed Against Revision */
+            computed_against_revision: number;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+        };
+        /** ApprovalRequestOut */
+        ApprovalRequestOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Adjustment Id
+             * Format: uuid
+             */
+            adjustment_id: string;
+            /**
+             * Order Id
+             * Format: uuid
+             */
+            order_id: string;
+            /**
+             * Issue Id
+             * Format: uuid
+             */
+            issue_id: string;
+            /** Amount */
+            amount: string;
+            /** Basis */
+            basis: {
+                [key: string]: unknown;
+            };
+            /**
+             * Initiated By
+             * Format: uuid
+             */
+            initiated_by: string;
+            /** Status */
+            status: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Is Expired */
+            is_expired: boolean;
+        };
+        /**
+         * ApprovalRequiredOut
+         * @description The 202 body.
+         *
+         *     `outcome` is a literal so a client cannot mistake this for a completion. §7:
+         *     `APPROVAL_REQUIRED` is a **successful** result meaning a proposal was
+         *     recorded and **nothing was applied**.
+         */
+        ApprovalRequiredOut: {
+            /**
+             * Outcome
+             * @default APPROVAL_REQUIRED
+             * @constant
+             */
+            outcome: "APPROVAL_REQUIRED";
+            /**
+             * Approval Request Id
+             * Format: uuid
+             */
+            approval_request_id: string;
+            /**
+             * Adjustment Id
+             * Format: uuid
+             */
+            adjustment_id: string;
+            /** Amount */
+            amount: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+        };
+        /**
+         * CalculateAdjustmentRequest
+         * @description **There is no amount field, and there never will be** (`AUT-2`).
+         *
+         *     The model is not discouraged from inventing a figure; it is incapable of one,
+         *     because there is nowhere in this schema to put it. An arbitrary-amount
+         *     request fails validation before reaching any service.
+         */
+        CalculateAdjustmentRequest: {
+            /**
+             * Issue Id
+             * Format: uuid
+             */
+            issue_id: string;
+        };
         /** CreateUserRequest */
         CreateUserRequest: {
             /**
@@ -308,6 +549,36 @@ export interface components {
             password: string;
             /** Role Keys */
             role_keys: string[];
+        };
+        /** CreditOut */
+        CreditOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Order Id
+             * Format: uuid
+             */
+            order_id: string;
+            /**
+             * Issue Id
+             * Format: uuid
+             */
+            issue_id: string;
+            /**
+             * Adjustment Id
+             * Format: uuid
+             */
+            adjustment_id: string;
+            /** Amount */
+            amount: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /**
          * CurrentUser
@@ -480,6 +751,17 @@ export interface components {
             issue_type: string;
             /** Affected Item Ids */
             affected_item_ids: string[];
+        };
+        /**
+         * RequestCreditRequest
+         * @description Identifier only. No amount, by construction (`AUT-2`).
+         */
+        RequestCreditRequest: {
+            /**
+             * Adjustment Id
+             * Format: uuid
+             */
+            adjustment_id: string;
         };
         /**
          * UserCreated
@@ -1073,6 +1355,416 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    calculate_adjustment_orders__order_id__adjustments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalculateAdjustmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdjustmentOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_credits_credits_get: {
+        parameters: {
+            query?: {
+                order_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditOut"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    request_credit_credits_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestCreditRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalRequiredOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    approve_request_approvals__request_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reject_request_approvals__request_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalRequestOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_approvals_approvals_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalRequestOut"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

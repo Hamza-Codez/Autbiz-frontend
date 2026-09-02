@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
+import { ProposeCredit } from '@/components/ProposeCredit';
 import type { OrderDetail } from '@/lib/types';
 
 /**
@@ -25,6 +26,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ orderId:
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,7 +64,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ orderId:
     return () => {
       cancelled = true;
     };
-  }, [orderId]);
+  }, [orderId, reload]);
 
   if (loading) {
     return <main className="mx-auto w-full max-w-4xl p-8 text-gray-700">Loading…</main>;
@@ -174,6 +177,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ orderId:
           ))}
         </ul>
       )}
+
+      <ProposeCredit order={order} onChanged={() => setReload((n) => n + 1)} />
     </main>
   );
 }

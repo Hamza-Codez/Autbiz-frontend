@@ -61,3 +61,33 @@ export type ReportIssueRequest = Schemas['ReportIssueRequest'];
  * count to display — never `items.length`.
  */
 export type OrderPage = Schemas['Page_OrderSummary_'];
+
+// --- Phase 2: the financial core --------------------------------------------
+
+/**
+ * A backend-calculated figure. `basis` carries the itemisation the sum was taken
+ * over — **render it**. An approver shown only a total is rubber-stamping; one
+ * shown the SKUs, quantities and unit amounts is reviewing.
+ */
+export type Adjustment = Schemas['AdjustmentOut'];
+
+/**
+ * The 202 body from `POST /credits`.
+ *
+ * `outcome` is the literal `APPROVAL_REQUIRED`. This is a **successful** result
+ * meaning a proposal was recorded and **nothing was applied**. Rendering it as
+ * success is the single most likely defect in this codebase: it looks correct in
+ * every screenshot and is discovered by a customer who was told they had been
+ * credited and had not.
+ */
+export type ApprovalRequired = Schemas['ApprovalRequiredOut'];
+
+/**
+ * A queue row. `is_expired` is evaluated server-side on read (`AUT-11`), so a
+ * row can arrive already expired with no write having happened — render it as
+ * expired and offer no approve control.
+ */
+export type ApprovalRequest = Schemas['ApprovalRequestOut'];
+
+/** A credit that actually exists. Reaching this IS a completion. */
+export type Credit = Schemas['CreditOut'];

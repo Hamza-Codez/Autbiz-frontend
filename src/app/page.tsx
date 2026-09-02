@@ -27,6 +27,12 @@ const NAV: { permission: string; href: string; label: string; description: strin
     label: 'Orders',
     description: 'Browse orders, their items and any logged issues.',
   },
+  {
+    permission: 'approvals:write',
+    href: '/approvals',
+    label: 'Approvals',
+    description: 'Credits proposed by others, awaiting your decision.',
+  },
 ];
 
 export default function Home() {
