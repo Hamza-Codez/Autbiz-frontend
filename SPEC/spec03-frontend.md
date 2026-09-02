@@ -195,6 +195,79 @@ Drive a real browser through the full cycle with two accounts:
 
 ## As Built
 
-*To be completed after implementation. Record every divergence and why.*
+Phase 2, frontend. The proposal flow on the order detail, and `/approvals`.
 
-<!-- nothing yet -->
+### The 202, which is the whole point
+
+`POST /credits` returns **202 `APPROVAL_REQUIRED`** and the screen renders
+"Awaiting approval — **nothing has been applied yet**". It never says applied,
+never says success.
+
+Three assertions guard it, including that the words "credit applied" never
+appear. This is the single most likely defect in the codebase: it looks correct
+in every screenshot and is discovered by a customer who was told they had been
+credited and had not.
+
+### Decisions
+
+**No amount input exists, at any permission level.** The backend has no field to
+receive one (`AUT-2`), so an input would be a control that cannot work. A test
+asserts no numeric or amount-named input is present anywhere in the flow.
+
+**Both screens render the basis, not just the total** — the SKUs, quantities and
+unit amounts the figure was summed over. An approver shown a number is
+rubber-stamping; one shown its derivation is reviewing.
+
+**One queue.** When Phase 3 adds cancellation approvals they appear here too; a
+second queue would let a supervisor clear one and believe they were done.
+
+**The approve control is hidden on your own proposal, with the reason shown.**
+UX only — `AUT-4` refuses it at the database and the service returns 409
+regardless — but a button that always fails is a bad button.
+
+**Expired rows are rendered as expired, not hidden.** `AUT-11`: expiry is
+evaluated server-side on read, so a row can arrive already expired with no write
+having happened. Hiding it would leave its initiator wondering where the
+proposal went.
+
+**Refusals render the envelope verbatim.** `STALE_CALCULATION` and
+`PROPOSAL_EXPIRED` are different situations with different §8 messages, and each
+already names its remedy.
+
+### Two defects found while building
+
+**The queue wiped its own refusal message.** `decide()` set the error, then
+triggered a reload whose success path called `setError(null)` — so a refused
+approval flashed its reason and then showed nothing. The supervisor would see an
+unchanged row with no explanation, which reads as a dead button. It no longer
+reloads on failure.
+
+**The calculated figure had no accessible name.** A screen reader announced a
+bare "20.00", and the same number appears again as a line total below it. Adding
+`aria-labelledby` fixed the ambiguity in the UI and in the test at once — the
+test was failing for a real reason.
+
+### Verified in a real browser, two accounts
+
+Operator finds an order with an open issue, calculates **960.00**, submits, and
+sees "nothing has been applied yet". Supervisor opens the queue, sees the amount
+**with its basis** (`PMP-200 × 2 = 960.00`), approves, and the queue empties. No
+console errors, no failed requests.
+
+**This is what found the CSRF defect** — every mutation through the real proxy
+returned 403, invisible to 27 passing component tests and 83 passing backend
+tests. Fixed in the backend and recorded in `rules.md` §23.
+
+27 tests, clean production build, `npm run check:rendered` 12/12.
+
+### Not done
+
+- **Not deployed.**
+- **No UI for logging an issue.** §12.3 resolved to
+  `POST /orders/{id}/issues` and the endpoint exists, but nothing calls it from
+  the browser — issues had to be seeded to exercise the credit flow. Without a
+  form the whole Phase 2 flow is unreachable through the product, which makes it
+  the first thing Phase 3 should add.
+- The rendered check covers login, shell nav and the orders table; the proposal
+  and queue screens are not in it yet.
+- No credit history screen. `GET /credits` exists and nothing renders it.
