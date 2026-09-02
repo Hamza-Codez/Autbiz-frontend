@@ -91,3 +91,6 @@ export type ApprovalRequest = Schemas['ApprovalRequestOut'];
 
 /** A credit that actually exists. Reaching this IS a completion. */
 export type Credit = Schemas['CreditOut'];
+
+/** Paginated credit history. `total` is the server's count, never items.length. */
+export type CreditPage = Schemas['Page_CreditOut_'];

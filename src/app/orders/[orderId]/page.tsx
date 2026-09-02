@@ -3,7 +3,9 @@
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
+import { OrderCredits } from '@/components/OrderCredits';
 import { ProposeCredit } from '@/components/ProposeCredit';
+import { ReportIssue } from '@/components/ReportIssue';
 import type { OrderDetail } from '@/lib/types';
 
 /**
@@ -178,7 +180,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ orderId:
         </ul>
       )}
 
+      <ReportIssue order={order} onChanged={() => setReload((n) => n + 1)} />
+
       <ProposeCredit order={order} onChanged={() => setReload((n) => n + 1)} />
+
+      <OrderCredits orderId={order.id} reloadKey={reload} />
     </main>
   );
 }

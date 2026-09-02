@@ -306,7 +306,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Credits */
+        /**
+         * List Credits
+         * @description Credit history. Paginated like `/orders`, and rejects unknown parameters.
+         *
+         *     An arbitrary cap would be the same class of fault as a silently defaulted
+         *     page size: a plausible answer with no indication it is partial.
+         */
         get: operations["list_credits_credits_get"];
         put?: never;
         /**
@@ -731,6 +737,19 @@ export interface components {
             placed_at: string;
             /** Revision */
             revision: number;
+        };
+        /** Page[CreditOut] */
+        Page_CreditOut_: {
+            /** Items */
+            items: components["schemas"]["CreditOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
         };
         /** Page[OrderSummary] */
         Page_OrderSummary_: {
@@ -1447,6 +1466,8 @@ export interface operations {
     list_credits_credits_get: {
         parameters: {
             query?: {
+                page?: number;
+                size?: number;
                 order_id?: string | null;
             };
             header?: never;
@@ -1461,7 +1482,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CreditOut"][];
+                    "application/json": components["schemas"]["Page_CreditOut_"];
                 };
             };
             /** @description Unauthorized */
