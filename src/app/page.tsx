@@ -1,12 +1,33 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 // Re-exported from the generated schema, never redefined (sops.md §7). A local
 // `type User = {...}` would keep tsc green through a backend rename and fail at
 // runtime instead.
 import type { CurrentUser } from '@/lib/types';
+
+/**
+ * Navigation is derived from the permission list `GET /auth/me` returns.
+ *
+ * **This is UX, never security** (`AUT-7`). Hiding a link keeps someone off a
+ * screen the backend would refuse anyway; it does not protect anything. Never
+ * move an authorization decision here.
+ *
+ * An unrecognised permission is ignored rather than rendered. The backend may
+ * ship a new one before this file knows about it, and dumping raw permission
+ * keys on screen is debug output, not navigation.
+ */
+const NAV: { permission: string; href: string; label: string; description: string }[] = [
+  {
+    permission: 'orders:read',
+    href: '/orders',
+    label: 'Orders',
+    description: 'Browse orders, their items and any logged issues.',
+  },
+];
 
 export default function Home() {
   const [user, setUser] = useState<CurrentUser | null>(null);
@@ -31,6 +52,8 @@ export default function Home() {
     await api.POST('/auth/logout');
     router.push('/login');
   };
+
+  const nav = NAV.filter((entry) => user?.permissions.includes(entry.permission));
 
   if (loading) {
     return (
@@ -63,13 +86,23 @@ export default function Home() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-medium text-gray-900 mb-4">Navigation</h2>
-          {user.permissions.length === 0 ? (
-            <p className="text-gray-500 text-sm">No permissions granted.</p>
+          {nav.length === 0 ? (
+            <p className="text-gray-600 text-sm">
+              No sections are available to this account. An administrator can grant access.
+            </p>
           ) : (
             <ul className="space-y-2">
-              {user.permissions.map((perm) => (
-                <li key={perm} className="text-sm text-gray-700 p-2 bg-gray-50 rounded border border-gray-100">
-                  {perm}
+              {nav.map((entry) => (
+                <li key={entry.href}>
+                  <Link
+                    href={entry.href}
+                    className="block rounded border border-gray-200 p-3 hover:border-gray-400"
+                  >
+                    <span className="text-sm font-medium text-blue-800 underline underline-offset-2">
+                      {entry.label}
+                    </span>
+                    <span className="block text-xs text-gray-600">{entry.description}</span>
+                  </Link>
                 </li>
               ))}
             </ul>

@@ -34,3 +34,30 @@ export type UserCreated = Schemas['UserCreated'];
  */
 export type ErrorResponse = Schemas['ErrorResponse'];
 export type ErrorBody = Schemas['ErrorBody'];
+
+// --- Phase 1: the domain read model -----------------------------------------
+
+/** List representation. Carries no items or issues. */
+export type OrderSummary = Schemas['OrderSummary'];
+
+/** One order with its items and issues. */
+export type OrderDetail = Schemas['OrderDetail'];
+
+export type OrderItem = Schemas['OrderItemOut'];
+export type OrderIssue = Schemas['OrderIssueOut'];
+export type Customer = Schemas['CustomerOut'];
+
+/**
+ * `balance` is derived server-side (`AUT-11`) and is zero until Phase 2 adds
+ * transactions. **A zero here is a real zero, not a missing value** — render it
+ * as a balance of zero, never as "no balance".
+ */
+export type Account = Schemas['AccountOut'];
+
+export type ReportIssueRequest = Schemas['ReportIssueRequest'];
+
+/**
+ * One page of results. `total` counts only rows the caller may see, so it is the
+ * count to display — never `items.length`.
+ */
+export type OrderPage = Schemas['Page_OrderSummary_'];
